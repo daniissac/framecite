@@ -1,0 +1,48 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS specific folders
+__MACOSX/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+venv/
+.env
+*.env
+
+# Streamlit
+.streamlit/
+secrets.toml
+
+# FastAPI
+instance/
+*.log
+
+# Docker
+docker-compose.override.yml
+*.tar
+*.img
+*.container
+
+# Logs and temp files
+logs/
+*.log
+*.swp
+*.swo
+*.swn
+nohup.out
+
+# VSCode & JetBrains IDEs
+.vscode/
+.idea/
+
+# Node.js (if frontend needs it)
+node_modules/
+package-lock.json
+yarn.lock
+
