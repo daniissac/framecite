@@ -5,7 +5,6 @@ WORKDIR /app
 # Install tcpdump and other dependencies
 RUN apt-get update && apt-get install -y \
     tcpdump \
-    tshark \
     libpcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,11 +19,12 @@ COPY main.py .
 COPY packet_parser.py .
 COPY llm_router.py .
 
-# Create uploads directory
-RUN mkdir -p uploads
+# Create non-root user and uploads directory
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p uploads && chown -R appuser:appuser /app
 
-# Expose port
+USER appuser
+
 EXPOSE 8000
 
-# Start application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

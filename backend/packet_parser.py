@@ -1,10 +1,8 @@
 import scapy.all as scapy
 from scapy.utils import rdpcap
-import pyshark
 import json
 from typing import List, Dict, Any, Optional
-from collections import Counter, defaultdict
-import ipaddress
+from collections import Counter
 import logging
 from pathlib import Path
 
@@ -21,31 +19,19 @@ class PacketParser:
         self.file_path = file_path
         self.max_packets = max_packets
         self._packets_scapy = None
-        self._packets_pyshark = None
         self._packet_count = 0
         self._load_packets()
     
     def _load_packets(self):
-        """Load packets from the PCAP file using both Scapy and PyShark."""
+        """Load packets from the PCAP file using Scapy."""
         try:
-            # Load with Scapy for quick metadata analysis
             logger.info(f"Loading PCAP with Scapy: {self.file_path}")
             self._packets_scapy = rdpcap(self.file_path, count=self.max_packets)
             self._packet_count = len(self._packets_scapy)
             logger.info(f"Loaded {self._packet_count} packets with Scapy")
-            
-            # Load with PyShark for detailed protocol analysis
-            # Only load when needed to save memory
         except Exception as e:
             logger.error(f"Error loading PCAP file: {str(e)}")
             raise RuntimeError(f"Failed to load PCAP file: {str(e)}")
-    
-    def _get_pyshark_capture(self):
-        """Get PyShark capture, loading it if not already loaded."""
-        if not self._packets_pyshark:
-            logger.info(f"Loading PCAP with PyShark: {self.file_path}")
-            self._packets_pyshark = pyshark.FileCapture(self.file_path)
-        return self._packets_pyshark
     
     def get_packet_count(self) -> int:
         """Get the total number of packets in the PCAP file."""
@@ -58,18 +44,18 @@ class PacketParser:
         
         try:
             # Calculate timespan
-            timestamps = [pkt.time for pkt in self._packets_scapy]
+            timestamps = [float(pkt.time) for pkt in self._packets_scapy]
             timespan = max(timestamps) - min(timestamps) if timestamps else 0
             
             return {
                 "packet_count": self._packet_count,
                 "file_size_bytes": Path(self.file_path).stat().st_size,
-                "duration_seconds": timespan,
+                "duration_seconds": float(timespan),
                 "packets_per_second": self._packet_count / timespan if timespan > 0 else 0
             }
         except Exception as e:
             logger.error(f"Error generating summary: {str(e)}")
-            return {"error": f"Failed to generate summary: {str(e)}"}
+            raise RuntimeError(f"Failed to generate summary: {str(e)}")
     
     def get_protocol_distribution(self) -> Dict[str, int]:
         """Get the distribution of protocols in the PCAP file."""
@@ -102,16 +88,12 @@ class PacketParser:
                 # Layer 4
                 if pkt.haslayer(scapy.TCP):
                     tcp_counter += 1
-                    
-                    # Simplified HTTP detection (port-based)
-                    if pkt.haslayer(scapy.TCP) and (pkt[scapy.TCP].dport == 80 or pkt[scapy.TCP].sport == 80):
+                    if pkt[scapy.TCP].dport == 80 or pkt[scapy.TCP].sport == 80:
                         http_counter += 1
                 
                 if pkt.haslayer(scapy.UDP):
                     udp_counter += 1
-                    
-                    # Simplified DNS detection (port-based)
-                    if pkt.haslayer(scapy.UDP) and (pkt[scapy.UDP].dport == 53 or pkt[scapy.UDP].sport == 53):
+                    if pkt[scapy.UDP].dport == 53 or pkt[scapy.UDP].sport == 53:
                         dns_counter += 1
                 
                 if pkt.haslayer(scapy.ICMP):
@@ -131,33 +113,35 @@ class PacketParser:
             
         except Exception as e:
             logger.error(f"Error getting protocol distribution: {str(e)}")
-            return {"error": str(e)}
+            return {}
     
-    def get_top_talkers(self, top_n: int = 10) -> List[Dict[str, Any]]:
+    def get_top_talkers(self, top_n: int = 10) -> Dict[str, Any]:
         """Get the top talkers (IP addresses) in the PCAP file."""
+        empty_result = {"top_ips": [], "top_connections": []}
         if not self._packets_scapy:
-            return []
+            return empty_result
         
         try:
             ip_counter = Counter()
             connections = Counter()
             
             for pkt in self._packets_scapy:
+                src_ip = None
+                dst_ip = None
                 if pkt.haslayer(scapy.IP):
                     src_ip = pkt[scapy.IP].src
                     dst_ip = pkt[scapy.IP].dst
-                    
+                elif pkt.haslayer(scapy.IPv6):
+                    src_ip = pkt[scapy.IPv6].src
+                    dst_ip = pkt[scapy.IPv6].dst
+                
+                if src_ip and dst_ip:
                     ip_counter[src_ip] += 1
                     ip_counter[dst_ip] += 1
-                    
-                    # Track connections (src-dst pairs)
-                    conn = f"{src_ip} → {dst_ip}"
+                    conn = f"{src_ip} \u2192 {dst_ip}"
                     connections[conn] += 1
             
-            # Get top IPs
             top_ips = [{"ip": ip, "packet_count": count} for ip, count in ip_counter.most_common(top_n)]
-            
-            # Get top connections
             top_connections = [{"connection": conn, "packet_count": count} 
                               for conn, count in connections.most_common(top_n)]
             
@@ -167,7 +151,7 @@ class PacketParser:
             }
         except Exception as e:
             logger.error(f"Error getting top talkers: {str(e)}")
-            return []
+            return empty_result
     
     def get_packets(self, start: int = 0, count: int = 10) -> List[Dict[str, Any]]:
         """Get a range of packets with detailed information."""
@@ -182,7 +166,7 @@ class PacketParser:
                 pkt = self._packets_scapy[i]
                 packet_data = {
                     "index": i,
-                    "time": pkt.time,
+                    "time": float(pkt.time),
                     "length": len(pkt),
                     "layers": []
                 }
@@ -258,8 +242,7 @@ class PacketParser:
                         if len(data_str) > 200:
                             data_str = data_str[:200] + "..."
                         packet_data["payload"] = data_str
-                    except:
-                        # If can't decode properly, just note binary data
+                    except Exception:
                         packet_data["payload"] = f"Binary data ({len(data)} bytes)"
                 
                 result.append(packet_data)

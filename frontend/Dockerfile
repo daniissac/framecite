@@ -11,11 +11,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app.py .
 
-# Expose port
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE 8501
 
-# Environment variables
 ENV API_URL="http://backend:8000"
 
-# Start application
 CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]

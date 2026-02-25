@@ -1,10 +1,4 @@
-fastapi>=0.95.0
-uvicorn>=0.21.1
-python-multipart>=0.0.6
-scapy>=2.5.0
-pyshark>=0.6.0
-httpx>=0.24.0
-streamlit>=1.26.0
-plotly>=5.15.0
-pandas>=2.0.0
-pydantic>=2.0.0
+streamlit==1.45.0
+plotly==6.0.1
+pandas==2.2.3
+httpx==0.28.1
