@@ -1,6 +1,14 @@
-## PacketPilot
+# PacketPilot
 
 PacketPilot is a comprehensive packet analysis tool that integrates with multiple LLM providers and offers a web-based interface for analyzing network traffic.
+
+[![CI](https://github.com/daniissac/packetpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/daniissac/packetpilot/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+![PacketPilot architecture](architecture.png)
+
+> [!IMPORTANT]
+> Packet captures can contain credentials, personal data, internal addresses, and proprietary traffic. Analyze only captures you are authorized to use. When a cloud LLM provider is selected, the summarized capture context is sent to that provider; use Ollama for a local-only workflow.
 
 ### Architecture
 
@@ -31,7 +39,7 @@ PacketPilot is a comprehensive packet analysis tool that integrates with multipl
    - Health checks for service readiness
    - Environment variable configuration for API keys and tuning
 
-### Usage Instructions
+### Quick start
 
 1. **Setup**
    ```bash
@@ -73,3 +81,29 @@ All configuration is done through environment variables. Copy `.env.template` to
 At least one LLM provider API key must be configured for chat analysis to work. Ollama is always available when the container is running.
 
 The tool provides a user-friendly interface for network analysts to work with packet captures and get AI-assisted insights, making it easier to understand complex network traffic patterns.
+
+### Development
+
+Run the backend checks locally:
+
+```bash
+python -m pip install -r backend/requirements.txt
+python -m pip install pytest
+PYTHONPATH=backend pytest backend/tests -q
+```
+
+Validate the container configuration:
+
+```bash
+docker compose config
+```
+
+Provider APIs and model availability change over time. Set the `*_MODEL` environment variables explicitly for production deployments and verify them against the provider account you use.
+
+### Contributing
+
+Bug reports and focused pull requests are welcome. Please avoid attaching sensitive packet captures to public issues; use a minimal synthetic capture whenever possible.
+
+### License
+
+[MIT](LICENSE)
