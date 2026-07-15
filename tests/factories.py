@@ -171,6 +171,54 @@ def write_dns_response_before_query_pcap(path: Path) -> Path:
     return path
 
 
+def write_dns_retry_then_response_pcap(path: Path) -> Path:
+    """Write two identical queries followed by one response that satisfies both retries."""
+
+    client = "10.0.0.10"
+    dns_server = "10.0.0.53"
+    query = (
+        ethernet()
+        / IP(src=client, dst=dns_server)
+        / UDP(sport=53300, dport=53)
+        / DNS(id=45, qd=DNSQR(qname="retry.example"))
+    )
+    response = (
+        ethernet()
+        / IP(src=dns_server, dst=client)
+        / UDP(sport=53, dport=53300)
+        / DNS(id=45, qr=1, qd=DNSQR(qname="retry.example"))
+    )
+    wrpcap(str(path), [query, query.copy(), response])
+    return path
+
+
+def write_dns_literal_all_pcap(path: Path) -> Path:
+    """Write enough DNS findings to paginate while filtering the literal name 'all'."""
+
+    client = "10.0.0.10"
+    dns_server = "10.0.0.53"
+    packets = [
+        ethernet()
+        / IP(src=client, dst=dns_server)
+        / UDP(sport=53400, dport=53)
+        / DNS(id=46, qd=DNSQR(qname="all")),
+        ethernet()
+        / IP(src=client, dst=dns_server)
+        / UDP(sport=53400, dport=53)
+        / DNS(id=46, qd=DNSQR(qname="all")),
+        ethernet()
+        / IP(src=client, dst=dns_server)
+        / UDP(sport=53401, dport=53)
+        / DNS(id=47, qd=DNSQR(qname="error.example")),
+        ethernet()
+        / IP(src=dns_server, dst=client)
+        / UDP(sport=53, dport=53401)
+        / DNS(id=47, qr=1, rcode=3, qd=DNSQR(qname="error.example")),
+    ]
+    wrpcap(str(path), packets)
+    return path
+
+
 def write_mdns_pcap(path: Path) -> Path:
     """Write one multicast-DNS query and response with multicast endpoints."""
 

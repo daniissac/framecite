@@ -7,6 +7,7 @@ from tests.factories import (
     write_dns_case_variant_pcap,
     write_dns_port_reuse_pcap,
     write_dns_response_before_query_pcap,
+    write_dns_retry_then_response_pcap,
     write_icmp_quoted_dns_pcap,
     write_icmpv6_error_pcap,
     write_mdns_pcap,
@@ -137,6 +138,16 @@ def test_dns_response_must_follow_the_query(capture_root) -> None:
     by_rule = {finding.rule_id: finding for finding in findings}
 
     assert [item.packet_number for item in by_rule["dns-no-matching-response"].evidence] == [2]
+
+
+def test_one_dns_response_satisfies_identical_retry_queries(capture_root) -> None:
+    path = write_dns_retry_then_response_pcap(capture_root / "dns-retry-response.pcap")
+    capture = CaptureStore(Settings(roots=(capture_root,))).open(str(path))
+    findings, _ = dns_findings(capture)
+    rule_ids = {finding.rule_id for finding in findings}
+
+    assert "dns-query-repeat" in rule_ids
+    assert "dns-no-matching-response" not in rule_ids
 
 
 def test_multicast_dns_is_not_forced_into_unicast_pairing(capture_root) -> None:

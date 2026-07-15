@@ -260,7 +260,6 @@ def dns_findings(
     for response in analyzable_responses:
         responses_by_key[transaction_key(response, response=True)].append(response)
 
-    used_responses: set[int] = set()
     unresolved: list[PacketRecord] = []
     for query in analyzable_queries:
         matching = next(
@@ -268,14 +267,11 @@ def dns_findings(
                 response
                 for response in responses_by_key.get(transaction_key(query), [])
                 if response.packet_number > query.packet_number
-                and response.packet_number not in used_responses
             ),
             None,
         )
         if matching is None:
             unresolved.append(query)
-        else:
-            used_responses.add(matching.packet_number)
     if unresolved:
         findings.append(
             Finding(

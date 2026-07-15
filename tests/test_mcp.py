@@ -6,8 +6,9 @@ import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 from pydantic import AnyUrl
 
+from framecite.config import Settings
 from framecite.server import create_server
-from tests.factories import SECRET_PAYLOAD
+from tests.factories import SECRET_PAYLOAD, write_dns_literal_all_pcap
 
 
 @pytest.mark.asyncio
@@ -102,3 +103,29 @@ async def test_mcp_output_respects_conservative_budget(settings, capture_path) -
         assert result.isError is False
         budget = result.structuredContent["budget"]
         assert budget["estimated_tokens"] <= budget["applied_tokens"]
+
+
+@pytest.mark.asyncio
+async def test_dns_cursor_distinguishes_unfiltered_from_literal_all(capture_root) -> None:
+    path = write_dns_literal_all_pcap(capture_root / "literal-all.pcap")
+    server = create_server(Settings(roots=(capture_root,)))
+
+    async with create_connected_server_and_client_session(server) as session:
+        opened = await session.call_tool("open_capture", {"path": str(path)})
+        capture_id = opened.structuredContent["capture_id"]
+        unfiltered = await session.call_tool(
+            "analyze_dns", {"capture_id": capture_id, "max_tokens": 300}
+        )
+        cursor = unfiltered.structuredContent["budget"]["next_cursor"]
+        assert cursor is not None
+
+        filtered = await session.call_tool(
+            "analyze_dns",
+            {
+                "capture_id": capture_id,
+                "qname": "all",
+                "cursor": cursor,
+                "max_tokens": 2_000,
+            },
+        )
+        assert filtered.isError is True

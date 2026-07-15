@@ -201,7 +201,7 @@ def create_server(settings: Settings) -> FastMCP:
         qname_token = store.dns_qname_token(safe_qname) if safe_qname else None
         dns, facts = dns_findings(capture, qname_token)
         findings = [finding.to_dict() for finding in dns]
-        kind = _query_key("dns", safe_qname or "all")
+        kind = _query_key("dns", {"qname_token": qname_token})
         start = store.cursor_offset(cursor, capture_id, kind)
         if start > len(findings):
             raise ValueError("Cursor is beyond the available DNS findings.")
