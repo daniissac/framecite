@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560" role="img" aria-labelledby="title description">
+  <title id="title">FrameCite local MCP architecture</title>
+  <desc id="description">An MCP client communicates over standard input and output with FrameCite, which accepts an attached or root-confined capture, streams it through Scapy, discards payloads, and exposes six bounded read-only tools.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08111f"/>
+      <stop offset="1" stop-color="#13233d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#020712" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="1120" height="560" rx="28" fill="url(#background)"/>
+  <text x="56" y="66" fill="#f7fbff" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="700">FrameCite architecture</text>
+  <text x="56" y="96" fill="#8fa9c9" font-family="Inter, system-ui, sans-serif" font-size="16">Attached or root-confined captures in. Sanitized evidence out. Conclusions stay local.</text>
+
+  <g filter="url(#shadow)" font-family="Inter, system-ui, sans-serif">
+    <rect x="56" y="160" width="210" height="138" rx="18" fill="#172b47" stroke="#5e7ea6"/>
+    <text x="80" y="202" fill="#8ec5ff" font-size="14" font-weight="700">MCP HOST</text>
+    <text x="80" y="236" fill="#ffffff" font-size="22" font-weight="650">Client + model</text>
+    <text x="80" y="267" fill="#adc2dc" font-size="15">Approvals and reasoning</text>
+
+    <rect x="346" y="132" width="430" height="318" rx="22" fill="#102b35" stroke="#47c1a8" stroke-width="2"/>
+    <text x="378" y="177" fill="#69e1c4" font-size="14" font-weight="700">FRAMECITE • LOCAL STDIO SERVER</text>
+    <text x="378" y="213" fill="#ffffff" font-size="23" font-weight="650">Safety policy</text>
+    <text x="378" y="242" fill="#b7d7d1" font-size="15">Root/host confinement • bounded ephemeral staging</text>
+    <line x1="378" y1="265" x2="744" y2="265" stroke="#285661"/>
+    <text x="378" y="302" fill="#ffffff" font-size="23" font-weight="650">Streaming ingestion</text>
+    <text x="378" y="331" fill="#b7d7d1" font-size="15">Ephemeral staging • Scapy PcapReader • no TShark</text>
+    <line x1="378" y1="354" x2="744" y2="354" stroke="#285661"/>
+    <text x="378" y="391" fill="#ffffff" font-size="23" font-weight="650">Sanitized evidence model</text>
+    <text x="378" y="420" fill="#b7d7d1" font-size="15">Allowlisted headers • payload discarded • 1-based citations</text>
+
+    <rect x="856" y="160" width="208" height="138" rx="18" fill="#2b2547" stroke="#a08ce3"/>
+    <text x="880" y="202" fill="#c9b8ff" font-size="14" font-weight="700">READ-ONLY OUTPUT</text>
+    <text x="880" y="236" fill="#ffffff" font-size="22" font-weight="650">Six MCP tools</text>
+    <text x="880" y="267" fill="#c7bfdf" font-size="15">Budgeted facts + findings</text>
+  </g>
+
+  <path d="M266 229 H334" stroke="#8ec5ff" stroke-width="3"/>
+  <path d="M326 221 L338 229 L326 237" fill="none" stroke="#8ec5ff" stroke-width="3"/>
+  <text x="281" y="213" fill="#8fa9c9" font-family="Inter, system-ui, sans-serif" font-size="13">stdio</text>
+  <path d="M776 229 H844" stroke="#69e1c4" stroke-width="3"/>
+  <path d="M836 221 L848 229 L836 237" fill="none" stroke="#69e1c4" stroke-width="3"/>
+
+  <rect x="56" y="486" width="1008" height="40" rx="12" fill="#0b192b" stroke="#294462"/>
+  <text x="560" y="511" text-anchor="middle" fill="#d0deef" font-family="ui-monospace, SFMono-Regular, monospace" font-size="14">open • summarize • conversations • inspect packets • analyze TCP • analyze DNS</text>
+</svg>

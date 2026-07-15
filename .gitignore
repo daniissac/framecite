@@ -1,48 +1,28 @@
-# macOS system files
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# macOS specific folders
-__MACOSX/
-
 # Python
-*.pyc
-*.pyo
-*.pyd
 __pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+.venv/
 venv/
+
+# Build and test output
+.coverage
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+htmlcov/
+
+# Local configuration and captures
 .env
 *.env
+*.pcap
+*.pcapng
 
-# Streamlit
-.streamlit/
-secrets.toml
-
-# FastAPI
-instance/
-*.log
-
-# Docker
-docker-compose.override.yml
-*.tar
-*.img
-*.container
-
-# Logs and temp files
-logs/
-*.log
-*.swp
-*.swo
-*.swn
-nohup.out
-
-# VSCode & JetBrains IDEs
-.vscode/
+# Editors and operating systems
+.DS_Store
 .idea/
-
-# Node.js (if frontend needs it)
-node_modules/
-package-lock.json
-yarn.lock
+.vscode/
+*.swp
 

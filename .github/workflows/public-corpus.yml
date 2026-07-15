@@ -1,0 +1,32 @@
+name: Public PCAP compatibility
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-pcap-corpus
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Pinned upstream captures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install FrameCite
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Download, verify, and delete the public corpus
+        run: python scripts/verify_public_corpus.py
