@@ -339,7 +339,11 @@ def validate_budget(payload: dict[str, Any], sample_id: str, tool: str) -> None:
 async def validate_mcp(
     root: Path, samples: list[dict[str, Any]], source_names: dict[str, set[str]]
 ) -> None:
-    settings = Settings(roots=(root,), max_captures=len(samples) + 1)
+    settings = Settings(
+        roots=(root,),
+        max_captures=len(samples) + 1,
+        extension_upload_hosts=("raw.githubusercontent.com",),
+    )
     server = create_server(settings)
     capture_ids: dict[str, str] = {}
 
@@ -348,8 +352,24 @@ async def validate_mcp(
         require(len(listed.tools) == 6, "The MCP tool surface is no longer six tools.")
         for sample in samples:
             sample_id = sample["id"]
+            if sample_id == "tcpdump-dns-udp":
+                open_arguments = {
+                    "capture_file": {
+                        "download_url": sample["url"],
+                        "file_id": "public-corpus-tcpdump-dns-udp",
+                        "mime_type": "application/vnd.tcpdump.pcap",
+                        "file_name": sample["filename"],
+                    },
+                    "max_tokens": 600,
+                }
+            else:
+                open_arguments = {
+                    "path": str(root / sample["filename"]),
+                    "max_tokens": 600,
+                }
             opened = await session.call_tool(
-                "open_capture", {"path": str(root / sample["filename"]), "max_tokens": 600}
+                "open_capture",
+                open_arguments,
             )
             require(opened.isError is False, f"{sample_id} could not open through MCP.")
             opened_payload = opened.structuredContent
@@ -357,6 +377,14 @@ async def validate_mcp(
             require(
                 opened_payload["packet_count"] == sample["packet_count"],
                 f"{sample_id} MCP packet count changed.",
+            )
+            require(
+                opened_payload["sha256"] == sample["sha256"],
+                f"{sample_id} MCP hash changed.",
+            )
+            require(
+                opened_payload["size_bytes"] == sample["size_bytes"],
+                f"{sample_id} MCP size changed.",
             )
             capture_id = opened_payload["capture_id"]
             capture_ids[sample_id] = capture_id
@@ -430,7 +458,7 @@ async def validate_mcp(
             result = await session.call_tool("open_capture", {"path": str(root / filename)})
             require(result.isError is False, f"Real stdio process could not open {filename}.")
 
-    print("PASS MCP: all six tools, pagination, budgets, and real stdio")
+    print("PASS MCP: all six tools, extension upload, pagination, budgets, and real stdio")
 
 
 def sample_by_id(samples: list[dict[str, Any]], identifier: str) -> dict[str, Any]:
@@ -467,10 +495,12 @@ def main() -> int:
         }
         asyncio.run(validate_mcp(root, samples, source_names))
         total_packets = sum(sample["packet_count"] for sample in samples)
-        total_bytes = sum(sample["size_bytes"] for sample in samples)
+        corpus_bytes = sum(sample["size_bytes"] for sample in samples)
+        extension_bytes = sample_by_id(samples, "tcpdump-dns-udp")["size_bytes"]
         print(
             f"Verified {len(samples)} public captures, {total_packets} packets, "
-            f"and {total_bytes} downloaded bytes; temporary files deleted."
+            f"and {corpus_bytes + extension_bytes} bytes across the corpus and extension "
+            "re-fetch; temporary files deleted."
         )
     return 0
 

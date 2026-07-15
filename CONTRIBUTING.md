@@ -7,7 +7,7 @@ Thank you for helping make packet troubleshooting safer and more reproducible.
 - Keep the MCP tool surface small and read-only.
 - Prefer deterministic facts over heuristic labels.
 - Give every generated conclusion at least one valid packet-number citation.
-- Never add a raw-payload return path, live capture, packet injection, shell command, or runtime network dependency.
+- Never add a raw-payload return path, live capture, packet injection, shell command, or general-purpose runtime network client. Extension-file retrieval must remain the single audited, bounded network path.
 - Reproduce packet behavior with synthetic Scapy fixtures; never commit a private capture.
 - Keep public-corpus entries metadata-only, pinned to immutable upstream revisions, and accompanied by exact size, SHA-256, source, and license links.
 

@@ -1,18 +1,52 @@
 from __future__ import annotations
 
 import os
+import threading
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from framecite.config import PolicyError, Settings
+from framecite.models import Capture
 from framecite.store import CaptureStore
 from tests.factories import write_troubleshooting_pcap
 
 
-def test_root_is_required() -> None:
-    with pytest.raises(PolicyError, match="root"):
-        Settings(roots=())
+def test_upload_only_mode_does_not_require_a_local_root() -> None:
+    settings = Settings(roots=())
+    assert settings.roots == ()
+    assert settings.allow_extension_uploads is True
+
+
+def test_local_path_is_disabled_without_a_configured_root(capture_path: Path) -> None:
+    with pytest.raises(PolicyError, match="attach"):
+        Settings(roots=()).resolve_capture(str(capture_path))
+
+
+def test_at_least_one_ingestion_route_is_required() -> None:
+    with pytest.raises(PolicyError, match="Enable extension uploads"):
+        Settings(roots=(), allow_extension_uploads=False)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "https://files.oaiusercontent.com",
+        "files.oaiusercontent.com:443",
+        "127.0.0.1",
+        "127.1",
+        "0x7f.0.0.1",
+        "0177.0.0.1",
+        "169.254.43518",
+        "localhost",
+        "bad_host.example",
+        "faß.de",
+    ],
+)
+def test_extension_upload_hosts_must_be_exact_dns_names(host: str) -> None:
+    with pytest.raises(PolicyError, match="host"):
+        Settings(roots=(), extension_upload_hosts=(host,))
 
 
 def test_path_outside_root_is_rejected(
@@ -55,6 +89,13 @@ def test_file_size_limit_is_enforced(capture_root: Path, capture_path: Path) -> 
         store.open(str(capture_path))
 
 
+def test_uploaded_capture_retains_no_temporary_path(capture_path: Path) -> None:
+    capture = CaptureStore(Settings(roots=())).open_uploaded(capture_path, "uploaded.pcap")
+
+    assert capture.path == Path("<extension-upload>")
+    assert capture.filename == "uploaded.pcap"
+
+
 def test_capture_cache_is_bounded(capture_root: Path) -> None:
     first_path = write_troubleshooting_pcap(capture_root / "first.pcap")
     second_path = write_troubleshooting_pcap(capture_root / "second.pcap")
@@ -64,6 +105,54 @@ def test_capture_cache_is_bounded(capture_root: Path) -> None:
     with pytest.raises(ValueError, match="evicted"):
         store.get(first.capture_id)
     assert store.get(second.capture_id) == second
+
+
+def test_manifest_snapshot_is_safe_during_cache_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    capture_root: Path,
+) -> None:
+    first = CaptureStore(Settings(roots=(capture_root,))).open(
+        str(write_troubleshooting_pcap(capture_root / "seed.pcap"))
+    )
+    store = CaptureStore(Settings(roots=(capture_root,)))
+    stored = store.open(str(capture_root / "seed.pcap"))
+    original_manifest = Capture.manifest
+    reading = threading.Event()
+    proceed = threading.Event()
+    wrote = threading.Event()
+    failures: list[BaseException] = []
+
+    def blocking_manifest(capture: Capture):
+        if capture.capture_id == stored.capture_id:
+            reading.set()
+            proceed.wait(timeout=2)
+        return original_manifest(capture)
+
+    def read_manifests() -> None:
+        try:
+            store.manifests()
+        except BaseException as exc:  # pragma: no cover - asserted below
+            failures.append(exc)
+
+    def update_cache() -> None:
+        store.remember(replace(first, capture_id="concurrent-capture"))
+        wrote.set()
+
+    monkeypatch.setattr(Capture, "manifest", blocking_manifest)
+    reader = threading.Thread(target=read_manifests)
+    reader.start()
+    assert reading.wait(timeout=1)
+    writer = threading.Thread(target=update_cache)
+    writer.start()
+    wrote_before_release = wrote.wait(timeout=1)
+    proceed.set()
+    reader.join(timeout=2)
+    writer.join(timeout=2)
+
+    assert not reader.is_alive()
+    assert not writer.is_alive()
+    assert wrote_before_release
+    assert failures == []
 
 
 def test_cursor_is_bound_to_capture_and_query(capture_root: Path, capture_path: Path) -> None:

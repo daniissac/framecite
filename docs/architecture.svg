@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="560" viewBox="0 0 1120 560" role="img" aria-labelledby="title description">
   <title id="title">FrameCite local MCP architecture</title>
-  <desc id="description">An MCP client communicates over standard input and output with FrameCite, which confines paths, streams captures through Scapy, discards payloads, and exposes six bounded read-only tools.</desc>
+  <desc id="description">An MCP client communicates over standard input and output with FrameCite, which accepts an attached or root-confined capture, streams it through Scapy, discards payloads, and exposes six bounded read-only tools.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#08111f"/>
@@ -12,7 +12,7 @@
   </defs>
   <rect width="1120" height="560" rx="28" fill="url(#background)"/>
   <text x="56" y="66" fill="#f7fbff" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="700">FrameCite architecture</text>
-  <text x="56" y="96" fill="#8fa9c9" font-family="Inter, system-ui, sans-serif" font-size="16">Local files in. Sanitized evidence out. No runtime network path.</text>
+  <text x="56" y="96" fill="#8fa9c9" font-family="Inter, system-ui, sans-serif" font-size="16">Attached or root-confined captures in. Sanitized evidence out. Conclusions stay local.</text>
 
   <g filter="url(#shadow)" font-family="Inter, system-ui, sans-serif">
     <rect x="56" y="160" width="210" height="138" rx="18" fill="#172b47" stroke="#5e7ea6"/>
@@ -23,10 +23,10 @@
     <rect x="346" y="132" width="430" height="318" rx="22" fill="#102b35" stroke="#47c1a8" stroke-width="2"/>
     <text x="378" y="177" fill="#69e1c4" font-size="14" font-weight="700">FRAMECITE • LOCAL STDIO SERVER</text>
     <text x="378" y="213" fill="#ffffff" font-size="23" font-weight="650">Safety policy</text>
-    <text x="378" y="242" fill="#b7d7d1" font-size="15">Root confinement • file/packet limits • no writes</text>
+    <text x="378" y="242" fill="#b7d7d1" font-size="15">Root/host confinement • bounded ephemeral staging</text>
     <line x1="378" y1="265" x2="744" y2="265" stroke="#285661"/>
     <text x="378" y="302" fill="#ffffff" font-size="23" font-weight="650">Streaming ingestion</text>
-    <text x="378" y="331" fill="#b7d7d1" font-size="15">Scapy PcapReader • PCAP/PCAPNG • no TShark</text>
+    <text x="378" y="331" fill="#b7d7d1" font-size="15">Ephemeral staging • Scapy PcapReader • no TShark</text>
     <line x1="378" y1="354" x2="744" y2="354" stroke="#285661"/>
     <text x="378" y="391" fill="#ffffff" font-size="23" font-weight="650">Sanitized evidence model</text>
     <text x="378" y="420" fill="#b7d7d1" font-size="15">Allowlisted headers • payload discarded • 1-based citations</text>

@@ -22,10 +22,27 @@
           "type": "named",
           "name": "--root",
           "isRepeated": true,
-          "description": "Allowed local directory containing PCAP or PCAPNG files.",
+          "description": "Optional allowed local directory containing PCAP or PCAPNG files.",
           "format": "filepath",
-          "isRequired": true,
+          "isRequired": false,
           "placeholder": "/absolute/path/to/captures"
+        },
+        {
+          "type": "named",
+          "name": "--extension-uploads",
+          "description": "Whether to accept host-provided file downloads.",
+          "format": "boolean",
+          "default": "true",
+          "isRequired": false
+        },
+        {
+          "type": "named",
+          "name": "--extension-upload-host",
+          "isRepeated": true,
+          "description": "Exact trusted HTTPS host for extension file downloads.",
+          "format": "string",
+          "isRequired": false,
+          "placeholder": "files.oaiusercontent.com"
         }
       ]
     }

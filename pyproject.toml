@@ -29,8 +29,12 @@ classifiers = [
   "Topic :: System :: Networking :: Monitoring",
 ]
 dependencies = [
+  "httpx>=0.28,<1",
   "mcp>=1.28.1,<2",
+  "pydantic>=2.11,<3; python_version < '3.14'",
+  "pydantic>=2.12,<3; python_version >= '3.14'",
   "scapy>=2.7.0,<3",
+  "typing-extensions>=4.12,<5",
 ]
 
 [project.optional-dependencies]
