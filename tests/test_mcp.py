@@ -47,6 +47,18 @@ async def test_mcp_surface_is_small_read_only_and_closed_world(settings, capture
             packet["payload"]["redacted"] for packet in inspected.structuredContent["packets"]
         )
 
+        dns = await session.call_tool(
+            "analyze_dns",
+            {
+                "capture_id": capture_id,
+                "qname": "unanswered.example",
+                "max_tokens": 800,
+            },
+        )
+        serialized_dns = json.dumps(dns.structuredContent)
+        assert "unanswered.example" not in serialized_dns
+        assert dns.structuredContent["qname_filter"]["redacted"] is True
+
 
 @pytest.mark.asyncio
 async def test_mcp_findings_resources_and_prompt_are_evidence_linked(

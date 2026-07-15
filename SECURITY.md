@@ -16,8 +16,9 @@ FrameCite assumes capture files and decoded protocol fields are untrusted. Its d
 - one or more operator-configured capture roots;
 - strict path and symlink resolution;
 - regular-file, extension, size, packet-count, and capture-count limits;
+- structural validation of classic PCAP records and PCAPNG blocks;
 - streaming parsing into immutable allowlisted metadata;
-- mandatory payload disposal and redacted output;
+- mandatory payload disposal, session-tokenized DNS names, and redacted output;
 - no runtime network client, shell execution, live capture, packet injection, or file-writing tool;
 - conservative output budgets and bounded decoded strings.
 
@@ -25,4 +26,4 @@ These controls reduce exposure but cannot make arbitrary parser input risk-free.
 
 ## Data handling
 
-Capture bytes never leave the local process through FrameCite. The server retains sanitized packet metadata in memory for at most the configured number of captures. Process exit clears that cache. The host MCP application may still send tool results to its configured model provider; review the host's data policy separately.
+Capture bytes never leave the local process through FrameCite. The server retains sanitized packet metadata in memory for at most the configured number of captures. DNS names are retained only as session-local HMAC tokens, and process exit clears the token key and capture cache. The host MCP application may still send tool results to its configured model provider; review the host's data policy separately.

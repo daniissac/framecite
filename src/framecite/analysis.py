@@ -11,7 +11,8 @@ from typing import Any
 from framecite.models import Capture, EvidenceRef, Finding, PacketRecord, endpoint
 
 MAX_EVIDENCE = 8
-ICMP_ERROR_TYPES = {3, 4, 5, 11, 12}
+ICMPV4_ERROR_TYPES = {3, 4, 5, 11, 12}
+ICMPV6_ERROR_TYPES = {1, 2, 3, 4}
 
 
 def _conversation_key(record: PacketRecord) -> tuple[str, tuple[str, int], tuple[str, int]] | None:
@@ -63,9 +64,10 @@ def conversations(capture: Capture, protocol: str = "any") -> list[dict[str, Any
                 "endpoint_a": endpoint(left[0], left[1]),
                 "endpoint_b": endpoint(right[0], right[1]),
                 "packet_count": len(records),
-                "bytes_on_wire": sum(record.length_bytes for record in records),
-                "first_time_offset_us": records[0].time_offset_us,
-                "last_time_offset_us": records[-1].time_offset_us,
+                "captured_bytes": sum(record.captured_length_bytes for record in records),
+                "wire_bytes": sum(record.wire_length_bytes for record in records),
+                "first_time_offset_us": min(record.time_offset_us for record in records),
+                "last_time_offset_us": max(record.time_offset_us for record in records),
                 "evidence": {
                     "first_packet": packet_numbers[0],
                     "last_packet": packet_numbers[-1],
@@ -105,7 +107,11 @@ def tcp_findings(capture: Capture, selected_conversation: str | None = None) -> 
             )
         )
 
-    zero_windows = [record for record in tcp_records if record.tcp_window == 0]
+    zero_windows = [
+        record
+        for record in tcp_records
+        if record.tcp_window == 0 and "R" not in (record.tcp_flags or "")
+    ]
     if zero_windows:
         findings.append(
             Finding(
@@ -117,15 +123,15 @@ def tcp_findings(capture: Capture, selected_conversation: str | None = None) -> 
         )
 
     syn_groups: dict[tuple[object, ...], list[PacketRecord]] = defaultdict(list)
-    syn_ack_keys: set[tuple[object, ...]] = set()
+    syn_ack_groups: dict[tuple[object, ...], list[PacketRecord]] = defaultdict(list)
     for record in tcp_records:
         flags = record.tcp_flags or ""
         forward = (record.src_ip, record.dst_ip, record.src_port, record.dst_port)
         reverse = (record.dst_ip, record.src_ip, record.dst_port, record.src_port)
         if "S" in flags and "A" not in flags:
-            syn_groups[forward].append(record)
+            syn_groups[(*forward, record.tcp_sequence)].append(record)
         elif "S" in flags and "A" in flags:
-            syn_ack_keys.add(reverse)
+            syn_ack_groups[reverse].append(record)
 
     retries = [record for records in syn_groups.values() if len(records) > 1 for record in records]
     if retries:
@@ -139,7 +145,26 @@ def tcp_findings(capture: Capture, selected_conversation: str | None = None) -> 
             )
         )
 
-    unanswered = [records[0] for key, records in syn_groups.items() if key not in syn_ack_keys]
+    used_syn_acks: set[int] = set()
+    unanswered: list[PacketRecord] = []
+    for key, records in sorted(syn_groups.items(), key=lambda item: item[1][0].packet_number):
+        four_tuple = key[:4]
+        sequence = key[4]
+        expected_ack = ((int(sequence) + 1) & 0xFFFFFFFF) if sequence is not None else None
+        matching = next(
+            (
+                candidate
+                for candidate in syn_ack_groups.get(four_tuple, [])
+                if candidate.packet_number > records[0].packet_number
+                and candidate.packet_number not in used_syn_acks
+                and candidate.tcp_acknowledgment == expected_ack
+            ),
+            None,
+        )
+        if matching is None:
+            unanswered.append(records[0])
+        else:
+            used_syn_acks.add(matching.packet_number)
     if unanswered:
         findings.append(
             Finding(
@@ -186,20 +211,24 @@ def tcp_findings(capture: Capture, selected_conversation: str | None = None) -> 
 
 
 def dns_findings(
-    capture: Capture, qname: str | None = None
+    capture: Capture, qname_token: str | None = None
 ) -> tuple[list[Finding], dict[str, int]]:
-    normalized_qname = qname.rstrip(".").lower() if qname else None
     dns_records = [
         record
         for record in capture.records
         if record.dns_id is not None
-        and (normalized_qname is None or (record.dns_qname or "").lower() == normalized_qname)
+        and (qname_token is None or record.dns_qname_token == qname_token)
     ]
     queries = [record for record in dns_records if record.dns_is_response is False]
     responses = [record for record in dns_records if record.dns_is_response is True]
+    multicast_dns = [
+        record for record in dns_records if record.src_port == 5353 or record.dst_port == 5353
+    ]
+    analyzable_queries = [record for record in queries if record not in multicast_dns]
+    analyzable_responses = [record for record in responses if record not in multicast_dns]
     findings: list[Finding] = []
 
-    errors = [record for record in responses if record.dns_rcode not in {None, 0}]
+    errors = [record for record in analyzable_responses if record.dns_rcode not in {None, 0}]
     if errors:
         findings.append(
             Finding(
@@ -211,9 +240,6 @@ def dns_findings(
         )
 
     def transaction_key(record: PacketRecord, *, response: bool = False) -> tuple[object, ...]:
-        normalized_name = (
-            record.dns_qname.rstrip(".").lower() if record.dns_qname is not None else None
-        )
         if response:
             source = (record.dst_ip, record.dst_port)
             destination = (record.src_ip, record.src_port)
@@ -223,14 +249,33 @@ def dns_findings(
         return (
             record.protocol,
             record.dns_id,
-            normalized_name,
+            record.dns_qname_token,
             record.dns_qtype,
+            record.dns_qclass,
             source,
             destination,
         )
 
-    response_keys = {transaction_key(record, response=True) for record in responses}
-    unresolved = [record for record in queries if transaction_key(record) not in response_keys]
+    responses_by_key: dict[tuple[object, ...], list[PacketRecord]] = defaultdict(list)
+    for response in analyzable_responses:
+        responses_by_key[transaction_key(response, response=True)].append(response)
+
+    used_responses: set[int] = set()
+    unresolved: list[PacketRecord] = []
+    for query in analyzable_queries:
+        matching = next(
+            (
+                response
+                for response in responses_by_key.get(transaction_key(query), [])
+                if response.packet_number > query.packet_number
+                and response.packet_number not in used_responses
+            ),
+            None,
+        )
+        if matching is None:
+            unresolved.append(query)
+        else:
+            used_responses.add(matching.packet_number)
     if unresolved:
         findings.append(
             Finding(
@@ -245,7 +290,7 @@ def dns_findings(
         )
 
     query_groups: dict[tuple[object, ...], list[PacketRecord]] = defaultdict(list)
-    for record in queries:
+    for record in analyzable_queries:
         query_groups[transaction_key(record)].append(record)
     retries = [
         record for records in query_groups.values() if len(records) > 1 for record in records
@@ -265,6 +310,7 @@ def dns_findings(
         "dns_packets": len(dns_records),
         "queries": len(queries),
         "responses": len(responses),
+        "multicast_dns_packets": len(multicast_dns),
     }
     return sorted(findings, key=lambda finding: finding.rule_id), facts
 
@@ -273,7 +319,16 @@ def summary_findings(capture: Capture) -> list[Finding]:
     findings = tcp_findings(capture)
     dns, _ = dns_findings(capture)
     findings.extend(dns)
-    icmp_errors = [record for record in capture.records if record.icmp_type in ICMP_ERROR_TYPES]
+    icmp_errors = [
+        record
+        for record in capture.records
+        if (
+            record.icmp_version == 4
+            and record.icmp_type in ICMPV4_ERROR_TYPES
+            or record.icmp_version == 6
+            and record.icmp_type in ICMPV6_ERROR_TYPES
+        )
+    ]
     if icmp_errors:
         findings.append(
             Finding(

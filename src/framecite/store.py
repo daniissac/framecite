@@ -9,7 +9,7 @@ import json
 import secrets
 from collections import OrderedDict
 
-from framecite.capture import parse_capture
+from framecite.capture import dns_qname_token, parse_capture
 from framecite.config import Settings
 from framecite.models import Capture
 
@@ -19,6 +19,7 @@ class CaptureStore:
         self.settings = settings
         self._captures: OrderedDict[str, Capture] = OrderedDict()
         self._cursor_key = secrets.token_bytes(32)
+        self._redaction_key = secrets.token_bytes(32)
 
     def open(self, raw_path: str) -> Capture:
         path, file_stat = self.settings.resolve_capture(raw_path)
@@ -28,12 +29,16 @@ class CaptureStore:
             path=path,
             initial_stat=file_stat,
             max_packets=self.settings.max_packets,
+            redaction_key=self._redaction_key,
         )
         self._captures[capture_id] = capture
         self._captures.move_to_end(capture_id)
         while len(self._captures) > self.settings.max_captures:
             self._captures.popitem(last=False)
         return capture
+
+    def dns_qname_token(self, qname: str) -> str:
+        return dns_qname_token(self._redaction_key, qname)
 
     def get(self, capture_id: str) -> Capture:
         try:

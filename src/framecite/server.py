@@ -198,14 +198,19 @@ def create_server(settings: Settings) -> FastMCP:
 
         capture = store.get(capture_id)
         safe_qname = clean_text(qname, 255) if qname else None
-        dns, facts = dns_findings(capture, safe_qname)
+        qname_token = store.dns_qname_token(safe_qname) if safe_qname else None
+        dns, facts = dns_findings(capture, qname_token)
         findings = [finding.to_dict() for finding in dns]
         kind = _query_key("dns", safe_qname or "all")
         start = store.cursor_offset(cursor, capture_id, kind)
         if start > len(findings):
             raise ValueError("Cursor is beyond the available DNS findings.")
         payload = budgeted_items(
-            base={"capture_id": capture_id, "qname_filter": safe_qname, "facts": facts},
+            base={
+                "capture_id": capture_id,
+                "qname_filter": ({"redacted": True, "token": qname_token} if qname_token else None),
+                "facts": facts,
+            },
             item_key="findings",
             items=findings[start:],
             start_offset=start,
@@ -252,8 +257,8 @@ def create_server(settings: Settings) -> FastMCP:
             f"Troubleshoot capture {capture_id} for: {safe_symptom}. "
             "Start with summarize_capture, then use the TCP or DNS analyzer only when relevant. "
             "Separate facts from inference. Cite every conclusion as [packet N] using returned "
-            "evidence. State truncation and capture-boundary limitations. Never infer payload "
-            "contents because FrameCite redacts them."
+            "evidence. State truncation, timestamp-regression, and capture-boundary limitations. "
+            "Never infer payload contents because FrameCite redacts them."
         )
 
     return mcp

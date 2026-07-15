@@ -29,7 +29,8 @@ def endpoint(address: str | None, port: int | None) -> str | None:
 class PacketRecord:
     packet_number: int
     time_offset_us: int
-    length_bytes: int
+    captured_length_bytes: int
+    wire_length_bytes: int
     layers: tuple[str, ...]
     protocol: str
     src_ip: str | None = None
@@ -43,10 +44,14 @@ class PacketRecord:
     dns_id: int | None = None
     dns_is_response: bool | None = None
     dns_rcode: int | None = None
-    dns_qname: str | None = None
+    dns_qname_token: str | None = None
+    dns_qname_length: int | None = None
+    dns_qname_labels: int | None = None
     dns_qtype: int | None = None
+    dns_qclass: int | None = None
     icmp_type: int | None = None
     icmp_code: int | None = None
+    icmp_version: int | None = None
     payload_length: int = 0
 
     def public(self) -> dict[str, Any]:
@@ -65,16 +70,31 @@ class PacketRecord:
                 "id": self.dns_id,
                 "is_response": self.dns_is_response,
                 "rcode": self.dns_rcode,
-                "qname": self.dns_qname,
+                "qname": (
+                    {
+                        "redacted": True,
+                        "token": self.dns_qname_token,
+                        "length_chars": self.dns_qname_length,
+                        "label_count": self.dns_qname_labels,
+                    }
+                    if self.dns_qname_token is not None
+                    else None
+                ),
                 "qtype": self.dns_qtype,
+                "qclass": self.dns_qclass,
             }
         if self.icmp_type is not None:
-            details["icmp"] = {"type": self.icmp_type, "code": self.icmp_code}
+            details["icmp"] = {
+                "version": self.icmp_version,
+                "type": self.icmp_type,
+                "code": self.icmp_code,
+            }
 
         return {
             "packet_number": self.packet_number,
             "time_offset_us": self.time_offset_us,
-            "length_bytes": self.length_bytes,
+            "captured_length_bytes": self.captured_length_bytes,
+            "wire_length_bytes": self.wire_length_bytes,
             "layers": list(self.layers),
             "protocol": self.protocol,
             "source": endpoint(self.src_ip, self.src_port),
@@ -93,6 +113,7 @@ class Capture:
     size_bytes: int
     records: tuple[PacketRecord, ...]
     duration_us: int
+    timestamp_regressions: int
     truncated: bool
 
     def manifest(self) -> dict[str, Any]:
@@ -111,6 +132,7 @@ class Capture:
             "size_bytes": self.size_bytes,
             "packet_count": len(self.records),
             "duration_us": self.duration_us,
+            "timestamp_regressions": self.timestamp_regressions,
             "protocol_counts": dict(sorted(counts.items())),
             "endpoint_count": len(endpoints),
             "payloads_redacted": True,

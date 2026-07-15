@@ -1,6 +1,7 @@
 # FrameCite
 
 [![CI](https://github.com/daniissac/framecite/actions/workflows/ci.yml/badge.svg)](https://github.com/daniissac/framecite/actions/workflows/ci.yml)
+[![Public PCAPs](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml/badge.svg)](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP: stdio](https://img.shields.io/badge/MCP-stdio-5b5bd6.svg)](https://modelcontextprotocol.io/)
 
@@ -21,7 +22,7 @@ FrameCite is a deliberately small Model Context Protocol server that turns packe
 - **Token-budgeted output:** every tool applies a conservative UTF-8 JSON budget and paginates only at whole-item boundaries.
 - **Packet-level evidence:** every generated conclusion contains one or more 1-based packet citations.
 - **Small, safe surface:** six read-only troubleshooting tools; no capture, injection, shell, arbitrary filter, write, or raw-byte tools.
-- **Synthetic verification:** tests generate known PCAP and PCAPNG scenarios for TCP, DNS, ICMP, IPv6, VLAN, privacy, path confinement, evidence, and MCP behavior.
+- **Two-layer verification:** hermetic synthetic tests cover failures and privacy boundaries; a hash-pinned public corpus checks real PCAP/PCAPNG compatibility without redistributing captures.
 
 ![FrameCite architecture](docs/architecture.svg)
 
@@ -65,7 +66,7 @@ After the PyPI release, the command becomes `uvx framecite --root /absolute/path
 | `list_conversations` | List TCP/UDP conversations with first, last, and sampled packet evidence. |
 | `inspect_packets` | Inspect up to 50 explicit 1-based packets using allowlisted headers. |
 | `analyze_tcp` | Check resets, zero windows, SYN repeats, missing SYN-ACKs, and repeated sequence ranges. |
-| `analyze_dns` | Check response codes, matching responses, and repeated identical queries. |
+| `analyze_dns` | Check response codes, matching responses, and repeated identical queries; supplied names are returned only as session-local tokens. |
 
 FrameCite also provides sanitized manifest and packet resources under `framecite://` plus a `triage_capture` prompt that requires the host model to distinguish fact from inference and cite `[packet N]`.
 
@@ -104,9 +105,12 @@ The person starting the server controls limits; the model cannot increase them:
 Additional guarantees:
 
 - Only regular `.pcap` and `.pcapng` files are accepted.
+- PCAP record boundaries and PCAPNG block lengths are validated before decoded results are accepted.
 - Paths are confined after strict resolution, blocking traversal and symlink escape.
 - Files are re-checked after parsing and rejected if they changed.
 - Raw Scapy packets and payload bytes are never retained in the capture cache.
+- DNS question names are replaced with non-reversible, session-local HMAC tokens plus length and label count.
+- Captured length and original wire length are reported separately; timestamp regressions are disclosed.
 - Tool budgets accept 256–2,000 tokens; smaller requests fail explicitly and larger requests are capped.
 - DNS names and decoded metadata are treated as untrusted, stripped of controls, and length-limited.
 - Tool annotations declare read-only, non-destructive, closed-world behavior; repeatable analysis calls are also marked idempotent. The code enforces the restrictions independently.
@@ -117,6 +121,8 @@ See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
 ## Known limits
 
 - Scapy is not a replacement for Wireshark's full dissector collection or TCP reassembly engine.
+- Unsupported link types or dissectors safely degrade to redacted `OTHER` records; protocol auto-decoding depends on Scapy support.
+- DNS auto-decoding is limited to traffic Scapy identifies as DNS; multicast DNS is counted but excluded from unicast transaction pairing.
 - Encrypted payloads such as TLS and DoH remain opaque.
 - A capture may begin or end mid-conversation, omit one direction, or contain duplicate packets.
 - Token counts are conservative estimates because the server does not know the host model's tokenizer.
@@ -134,7 +140,19 @@ pytest
 python -m build
 ```
 
-Tests run with internet sockets disabled. Synthetic fixtures include secrets and prompt-injection text so every MCP result and resource can be checked for leakage without publishing a real capture.
+Normal tests run with internet sockets disabled. Synthetic fixtures include payload secrets, private DNS names, malformed/truncated files, clock regressions, and prompt-injection text so MCP outputs can be checked without publishing a real capture.
+
+### Public compatibility corpus
+
+Run the opt-in upstream compatibility check after installing the project:
+
+```bash
+python scripts/verify_public_corpus.py
+```
+
+The manifest pins 11 small captures from immutable Wireshark, tcpdump, libpcap, and Tcpreplay revisions. The runner verifies HTTPS sources, exact sizes, SHA-256 hashes, 236 packet outcomes, both PCAPNG byte orders, redaction, evidence references, token budgets, pagination, all six MCP tools, and a real `stdio` process. Files are downloaded into a temporary directory and deleted; they are never committed or uploaded as artifacts.
+
+This networked check is separate from pull-request CI and runs weekly or on demand through [Public PCAP compatibility](.github/workflows/public-corpus.yml). Source and license links live beside every entry in [the metadata-only manifest](tests/public_corpus/manifest.json).
 
 ## Contributing
 

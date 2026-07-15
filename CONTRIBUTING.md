@@ -9,6 +9,7 @@ Thank you for helping make packet troubleshooting safer and more reproducible.
 - Give every generated conclusion at least one valid packet-number citation.
 - Never add a raw-payload return path, live capture, packet injection, shell command, or runtime network dependency.
 - Reproduce packet behavior with synthetic Scapy fixtures; never commit a private capture.
+- Keep public-corpus entries metadata-only, pinned to immutable upstream revisions, and accompanied by exact size, SHA-256, source, and license links.
 
 ## Local checks
 
@@ -21,3 +22,5 @@ python -m build
 ```
 
 Add tests for normal behavior, malformed input, boundaries, privacy, output budgets, and MCP schemas whenever they are relevant.
+
+The optional networked compatibility check is `python scripts/verify_public_corpus.py`. It downloads verified upstream captures only into a temporary directory and deletes them after the run. Do not add public or private capture files to the repository or upload them as workflow artifacts.
