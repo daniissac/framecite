@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "framecite"
+version = "0.1.0"
+description = "A local, evidence-first MCP server for bounded PCAP troubleshooting."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Dani Issac" }]
+keywords = [
+  "mcp",
+  "network-troubleshooting",
+  "packet-analysis",
+  "pcap",
+  "scapy",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: System :: Networking :: Monitoring",
+]
+dependencies = [
+  "mcp>=1.28.1,<2",
+  "scapy>=2.7.0,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "check-jsonschema>=0.33",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-socket>=0.7",
+  "ruff>=0.11",
+]
+
+[project.scripts]
+framecite = "framecite.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/daniissac/framecite"
+Issues = "https://github.com/daniissac/framecite/issues"
+Repository = "https://github.com/daniissac/framecite"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/framecite"]
+
+[tool.pytest.ini_options]
+addopts = "-q --disable-socket --allow-unix-socket"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]

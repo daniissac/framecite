@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.daniissac/framecite",
+  "title": "FrameCite",
+  "description": "Local, payload-redacted PCAP troubleshooting with deterministic packet citations.",
+  "repository": {
+    "url": "https://github.com/daniissac/framecite",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "framecite",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--root",
+          "isRepeated": true,
+          "description": "Allowed local directory containing PCAP or PCAPNG files.",
+          "format": "filepath",
+          "isRequired": true,
+          "placeholder": "/absolute/path/to/captures"
+        }
+      ]
+    }
+  ]
+}
