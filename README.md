@@ -154,6 +154,8 @@ python -m build
 
 Normal tests run with internet sockets disabled; extension ingress is exercised through an in-memory HTTP transport. Synthetic fixtures include payload secrets, private DNS names, malformed/truncated files, clock regressions, signed-URL secrets, SSRF attempts, and prompt-injection text so MCP outputs can be checked without publishing a real capture.
 
+Publishing a GitHub release builds the package again and publishes it through the `pypi` environment using trusted publishing; no long-lived PyPI token is stored in GitHub.
+
 ### Public compatibility corpus
 
 Run the opt-in upstream compatibility check after installing the project:
