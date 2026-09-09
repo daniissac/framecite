@@ -287,9 +287,36 @@ def validate_core_sample(
     summary = summary_findings(capture)
     tcp = tcp_findings(capture)
     require(len(rows) == sample["conversation_count"], f"{sample_id} flow count changed.")
-    require(dns_facts == sample["dns_facts"], f"{sample_id} DNS facts changed.")
+    expected_dns_facts = sample["dns_facts"]
+    require(
+        {key: dns_facts[key] for key in expected_dns_facts} == expected_dns_facts,
+        f"{sample_id} DNS counts changed.",
+    )
+    require(
+        0 <= dns_facts["matched_queries"] <= dns_facts["queries"],
+        f"{sample_id} DNS matched-query count is invalid.",
+    )
+    response_times = (
+        dns_facts["response_time_min_us"],
+        dns_facts["response_time_average_us"],
+        dns_facts["response_time_max_us"],
+    )
+    if dns_facts["matched_queries"] and dns_facts["timing_reliable"]:
+        require(
+            all(value is not None and value >= 0 for value in response_times)
+            and response_times == tuple(sorted(response_times)),
+            f"{sample_id} DNS response-time facts are invalid.",
+        )
+    else:
+        require(
+            response_times == (None, None, None),
+            f"{sample_id} reported DNS response times without reliable matches.",
+        )
     finding_rules = sorted(finding.rule_id for finding in summary)
-    require(finding_rules == sample["finding_rules"], f"{sample_id} findings changed.")
+    require(
+        finding_rules == sample["finding_rules"],
+        f"{sample_id} findings changed: {finding_rules!r}.",
+    )
     forbidden = set(sample.get("forbidden_finding_rules", []))
     require(forbidden.isdisjoint(finding_rules), f"{sample_id} emitted a forbidden finding.")
     validate_evidence(capture, summary + tcp + dns, sample_id)

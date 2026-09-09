@@ -6,7 +6,7 @@ from pathlib import Path
 
 from scapy.layers.dns import DNS, DNSQR, DNSRR
 from scapy.layers.inet import ICMP, IP, TCP, UDP
-from scapy.layers.inet6 import ICMPv6DestUnreach, IPv6
+from scapy.layers.inet6 import ICMPv6DestUnreach, ICMPv6PacketTooBig, ICMPv6TimeExceeded, IPv6
 from scapy.layers.l2 import Dot1Q, Ether
 from scapy.packet import Raw
 from scapy.utils import PcapNgWriter, wrpcap
@@ -323,6 +323,21 @@ def write_icmp_quoted_dns_pcap(path: Path) -> Path:
 def write_icmpv6_error_pcap(path: Path) -> Path:
     packet = ethernet() / IPv6(src="2001:db8::2", dst="2001:db8::1") / ICMPv6DestUnreach(code=1)
     wrpcap(str(path), [packet])
+    return path
+
+
+def write_icmp_path_signals_pcap(path: Path) -> Path:
+    """Write common IPv4 and IPv6 path-diagnostic messages."""
+
+    packets = [
+        ethernet() / IP(src="10.0.0.1", dst="10.0.0.10") / ICMP(type=3, code=3),
+        ethernet() / IP(src="10.0.0.1", dst="10.0.0.10") / ICMP(type=3, code=4),
+        ethernet() / IP(src="10.0.0.1", dst="10.0.0.10") / ICMP(type=11, code=0),
+        ethernet() / IP(src="10.0.0.1", dst="10.0.0.10") / ICMP(type=5, code=1),
+        ethernet() / IPv6(src="2001:db8::2", dst="2001:db8::1") / ICMPv6PacketTooBig(mtu=1280),
+        ethernet() / IPv6(src="2001:db8::2", dst="2001:db8::1") / ICMPv6TimeExceeded(code=0),
+    ]
+    wrpcap(str(path), packets)
     return path
 
 

@@ -66,6 +66,11 @@ class ConversationOutput(StrictOutput):
     packet_count: int = Field(ge=1)
     captured_bytes: int = Field(ge=0)
     wire_bytes: int = Field(ge=0)
+    packets_a_to_b: int = Field(ge=0)
+    packets_b_to_a: int = Field(ge=0)
+    wire_bytes_a_to_b: int = Field(ge=0)
+    wire_bytes_b_to_a: int = Field(ge=0)
+    directionality: Literal["bidirectional", "a_to_b_only", "b_to_a_only"]
     first_time_offset_us: int
     last_time_offset_us: int
     evidence: ConversationEvidenceOutput
@@ -131,6 +136,11 @@ class DnsFactsOutput(StrictOutput):
     queries: int = Field(ge=0)
     responses: int = Field(ge=0)
     multicast_dns_packets: int = Field(ge=0)
+    matched_queries: int = Field(ge=0)
+    timing_reliable: bool
+    response_time_min_us: int | None = Field(ge=0)
+    response_time_max_us: int | None = Field(ge=0)
+    response_time_average_us: int | None = Field(ge=0)
 
 
 class QnameFilterOutput(StrictOutput):

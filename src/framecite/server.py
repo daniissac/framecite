@@ -165,7 +165,7 @@ def create_server(settings: Settings) -> FastMCP:
     @mcp.tool(
         title="Summarize capture",
         description=(
-            "Use after open_capture for bounded capture facts and prioritized deterministic "
+            "Use after open_capture for capture health, TCP, DNS, and classified ICMP path "
             "findings with packet-number evidence."
         ),
         annotations=_annotations(),
@@ -197,8 +197,8 @@ def create_server(settings: Settings) -> FastMCP:
     @mcp.tool(
         title="List conversations",
         description=(
-            "Use after open_capture to enumerate bounded TCP or UDP conversations and the "
-            "packet numbers supporting each row."
+            "Use after open_capture to enumerate largest-first TCP or UDP conversations, "
+            "directional packet and byte counts, and supporting packet numbers."
         ),
         annotations=_annotations(),
         structured_output=True,
@@ -325,8 +325,8 @@ def create_server(settings: Settings) -> FastMCP:
     @mcp.tool(
         title="Analyze DNS",
         description=(
-            "Use after open_capture for deterministic DNS response-code, pairing, and repeat "
-            "checks; supplied names are represented only by session-local tokens."
+            "Use after open_capture for deterministic DNS response-code, pairing, repeat, and "
+            "response-time facts; supplied names become session-local tokens."
         ),
         annotations=_annotations(),
         structured_output=True,
@@ -401,7 +401,8 @@ def create_server(settings: Settings) -> FastMCP:
         safe_symptom = clean_text(symptom, 200)
         return (
             f"Troubleshoot capture {capture_id} for: {safe_symptom}. "
-            "Start with summarize_capture, then use the TCP or DNS analyzer only when relevant. "
+            "Start with summarize_capture, inspect its capture-health and ICMP path findings, "
+            "then use the TCP or DNS analyzer and directional conversations when relevant. "
             "Separate facts from inference. Cite every conclusion as [packet N] using returned "
             "evidence. State truncation, timestamp-regression, and capture-boundary limitations. "
             "Never infer payload contents because FrameCite redacts them."

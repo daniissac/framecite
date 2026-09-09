@@ -7,7 +7,7 @@
 
 **Local PCAP troubleshooting with packet-level citations.**
 
-FrameCite is a deliberately small Model Context Protocol server that turns packet captures into bounded facts and deterministic troubleshooting findings. It uses Scapy directly—no Wireshark, TShark, cloud service, embedded chat UI, or model API key.
+FrameCite is a deliberately small Model Context Protocol server that turns packet captures into bounded facts and deterministic troubleshooting findings. It checks capture quality, traffic direction, TCP, DNS timing and failures, and ICMP path or MTU signals. It uses Scapy directly—no Wireshark, TShark, cloud service, embedded chat UI, or model API key.
 
 <!-- mcp-name: io.github.daniissac/framecite -->
 
@@ -64,13 +64,15 @@ FrameCite declares `capture_file` using the official [`openai/fileParams` file-i
 | Tool | Purpose |
 |---|---|
 | `open_capture` | Stream one attached or root-confined PCAP/PCAPNG into a bounded, payload-free in-memory model. |
-| `summarize_capture` | Return capture facts and prioritized deterministic findings. |
-| `list_conversations` | List TCP/UDP conversations with first, last, and sampled packet evidence. |
+| `summarize_capture` | Return capture facts plus prioritized capture-health, TCP, DNS, and ICMP path findings. |
+| `list_conversations` | List largest-first TCP/UDP conversations with directional packet/byte counts and evidence. |
 | `inspect_packets` | Inspect up to 50 explicit 1-based packets using allowlisted headers. |
 | `analyze_tcp` | Check resets, zero windows, SYN repeats, missing SYN-ACKs, and repeated sequence ranges. |
-| `analyze_dns` | Check response codes, matching responses, and repeated identical queries; supplied names are returned only as session-local tokens. |
+| `analyze_dns` | Check response codes, matching responses, retries, and response-time facts; supplied names become session-local tokens. |
 
 FrameCite also provides sanitized manifest and packet resources under `framecite://` plus a `triage_capture` prompt that requires the host model to distinguish fact from inference and cite `[packet N]`.
+
+The summary now distinguishes destination-unreachable, fragmentation-needed, packet-too-big, TTL or hop-limit expiry, redirects, and parameter-problem messages instead of collapsing them into one ICMP warning. It also flags shortened captured frames, backward timestamps, and the configured packet limit before those defects can weaken later conclusions. These remain capture-bounded observations: FrameCite does not claim that an ICMP sender caused the reported application symptom.
 
 ### Evidence shape
 
@@ -134,6 +136,8 @@ See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
 - Scapy is not a replacement for Wireshark's full dissector collection or TCP reassembly engine.
 - Unsupported link types or dissectors safely degrade to redacted `OTHER` records; protocol auto-decoding depends on Scapy support.
 - DNS auto-decoding is limited to traffic Scapy identifies as DNS; multicast DNS is counted but excluded from unicast transaction pairing.
+- DNS response times come from capture timestamps and are suppressed when timestamps move backward.
+- ICMP messages are classified by outer type and code; the quoted originating flow is not correlated.
 - Encrypted payloads such as TLS and DoH remain opaque.
 - A capture may begin or end mid-conversation, omit one direction, or contain duplicate packets.
 - Token counts are conservative estimates because the server does not know the host model's tokenizer.
