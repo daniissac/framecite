@@ -28,10 +28,10 @@ FrameCite is a deliberately small Model Context Protocol server that turns packe
 
 ## Start in one command
 
-Until the first PyPI release, run directly from GitHub with [`uvx`](https://docs.astral.sh/uv/guides/tools/):
+Run the published package with [`uvx`](https://docs.astral.sh/uv/guides/tools/):
 
 ```bash
-uvx --from git+https://github.com/daniissac/framecite framecite
+uvx framecite
 ```
 
 Attach a `.pcap` or `.pcapng` in a ChatGPT host that implements the Apps SDK file-input extension and ask FrameCite to inspect it. The host supplies a temporary authorized file reference; FrameCite downloads it into a private temporary directory, parses it during that tool call, and deletes it before returning. The URL, file ID, original filename, and raw bytes are never retained in the capture cache.
@@ -45,17 +45,11 @@ An MCP client configuration uses the same command:
   "mcpServers": {
     "framecite": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/daniissac/framecite",
-        "framecite"
-      ]
+      "args": ["framecite"]
     }
   }
 }
 ```
-
-After the PyPI release, the command becomes `uvx framecite`.
 
 FrameCite declares `capture_file` using the official [`openai/fileParams` file-input contract](https://developers.openai.com/apps-sdk/reference#define-file-inputs). That extension is ChatGPT-specific; generic MCP clients may ignore it, so local path input remains available. The default exact-host policy accepts the currently tested `files.oaiusercontent.com` URL host. Because the contract does not promise a hostname, operators can replace that allowlist with `--extension-upload-host` if their trusted host supplies a different one.
 
