@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/daniissac/framecite/actions/workflows/ci.yml/badge.svg)](https://github.com/daniissac/framecite/actions/workflows/ci.yml)
 [![Public PCAPs](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml/badge.svg)](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/daniissac/framecite/blob/main/LICENSE)
 [![MCP: stdio](https://img.shields.io/badge/MCP-stdio-5b5bd6.svg)](https://modelcontextprotocol.io/)
 
 **Local PCAP troubleshooting with packet-level citations.**
 
-FrameCite is a deliberately small Model Context Protocol server that turns packet captures into bounded facts and deterministic troubleshooting findings. It uses Scapy directly—no Wireshark, TShark, cloud service, embedded chat UI, or model API key.
+FrameCite is a deliberately small Model Context Protocol server that turns packet captures into bounded facts and deterministic troubleshooting findings. It checks capture quality, traffic direction, TCP, DNS timing and failures, and ICMP path or MTU signals. It uses Scapy directly—no Wireshark, TShark, cloud service, embedded chat UI, or model API key.
 
 <!-- mcp-name: io.github.daniissac/framecite -->
 
@@ -24,7 +24,7 @@ FrameCite is a deliberately small Model Context Protocol server that turns packe
 - **Small, safe surface:** six read-only troubleshooting tools with strict input/output schemas; no capture, injection, shell, arbitrary filter, write, or raw-byte tools.
 - **Two-layer verification:** hermetic synthetic tests cover failures and privacy boundaries; a hash-pinned public corpus checks real PCAP/PCAPNG compatibility without redistributing captures.
 
-![FrameCite architecture](docs/architecture.svg)
+![FrameCite architecture](https://raw.githubusercontent.com/daniissac/framecite/main/docs/architecture.svg)
 
 ## Start in one command
 
@@ -64,13 +64,15 @@ FrameCite declares `capture_file` using the official [`openai/fileParams` file-i
 | Tool | Purpose |
 |---|---|
 | `open_capture` | Stream one attached or root-confined PCAP/PCAPNG into a bounded, payload-free in-memory model. |
-| `summarize_capture` | Return capture facts and prioritized deterministic findings. |
-| `list_conversations` | List TCP/UDP conversations with first, last, and sampled packet evidence. |
+| `summarize_capture` | Return capture facts plus prioritized capture-health, TCP, DNS, and ICMP path findings. |
+| `list_conversations` | List largest-first TCP/UDP conversations with directional packet/byte counts and evidence. |
 | `inspect_packets` | Inspect up to 50 explicit 1-based packets using allowlisted headers. |
 | `analyze_tcp` | Check resets, zero windows, SYN repeats, missing SYN-ACKs, and repeated sequence ranges. |
-| `analyze_dns` | Check response codes, matching responses, and repeated identical queries; supplied names are returned only as session-local tokens. |
+| `analyze_dns` | Check response codes, matching responses, retries, and response-time facts; supplied names become session-local tokens. |
 
 FrameCite also provides sanitized manifest and packet resources under `framecite://` plus a `triage_capture` prompt that requires the host model to distinguish fact from inference and cite `[packet N]`.
+
+The summary now distinguishes destination-unreachable, fragmentation-needed, packet-too-big, TTL or hop-limit expiry, redirects, and parameter-problem messages instead of collapsing them into one ICMP warning. It also flags shortened captured frames, backward timestamps, and the configured packet limit before those defects can weaken later conclusions. These remain capture-bounded observations: FrameCite does not claim that an ICMP sender caused the reported application symptom.
 
 ### Evidence shape
 
@@ -127,13 +129,15 @@ Additional guarantees:
 - Tool annotations declare read-only, non-destructive, closed-world behavior; repeatable analysis calls are also marked idempotent. `open_capture` advertises one top-level extension file parameter while preserving the same six-tool surface. The code enforces the restrictions independently.
 - Logs use standard error so they cannot corrupt MCP `stdio` messages.
 
-See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
+See [SECURITY.md](https://github.com/daniissac/framecite/blob/main/SECURITY.md) for the threat model and reporting process.
 
 ## Known limits
 
 - Scapy is not a replacement for Wireshark's full dissector collection or TCP reassembly engine.
 - Unsupported link types or dissectors safely degrade to redacted `OTHER` records; protocol auto-decoding depends on Scapy support.
 - DNS auto-decoding is limited to traffic Scapy identifies as DNS; multicast DNS is counted but excluded from unicast transaction pairing.
+- DNS response times come from capture timestamps and are suppressed when timestamps move backward.
+- ICMP messages are classified by outer type and code; the quoted originating flow is not correlated.
 - Encrypted payloads such as TLS and DoH remain opaque.
 - A capture may begin or end mid-conversation, omit one direction, or contain duplicate packets.
 - Token counts are conservative estimates because the server does not know the host model's tokenizer.
@@ -154,6 +158,8 @@ python -m build
 
 Normal tests run with internet sockets disabled; extension ingress is exercised through an in-memory HTTP transport. Synthetic fixtures include payload secrets, private DNS names, malformed/truncated files, clock regressions, signed-URL secrets, SSRF attempts, and prompt-injection text so MCP outputs can be checked without publishing a real capture.
 
+Publishing a GitHub release builds the package again and publishes it through the `pypi` environment using trusted publishing; no long-lived PyPI token is stored in GitHub.
+
 ### Public compatibility corpus
 
 Run the opt-in upstream compatibility check after installing the project:
@@ -164,12 +170,12 @@ python scripts/verify_public_corpus.py
 
 The manifest pins 11 small captures from immutable Wireshark, tcpdump, libpcap, and Tcpreplay revisions. The runner verifies HTTPS sources, exact sizes, SHA-256 hashes, 236 packet outcomes, both PCAPNG byte orders, redaction, evidence references, token budgets, pagination, all six MCP tools, the extension file-input path, and a real `stdio` process. Files are downloaded into temporary directories and deleted; they are never committed or uploaded as artifacts.
 
-This networked check is separate from pull-request CI and runs weekly or on demand through [Public PCAP compatibility](.github/workflows/public-corpus.yml). Source and license links live beside every entry in [the metadata-only manifest](tests/public_corpus/manifest.json).
+This networked check is separate from pull-request CI and runs weekly or on demand through [Public PCAP compatibility](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml). Source and license links live beside every entry in [the metadata-only manifest](https://github.com/daniissac/framecite/blob/main/tests/public_corpus/manifest.json).
 
 ## Contributing
 
-Focused issues and pull requests are welcome. Do not attach real or sensitive packet captures to public issues; add a minimal synthetic fixture instead. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Focused issues and pull requests are welcome. Do not attach real or sensitive packet captures to public issues; add a minimal synthetic fixture instead. See [CONTRIBUTING.md](https://github.com/daniissac/framecite/blob/main/CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/daniissac/framecite/blob/main/LICENSE)

@@ -195,7 +195,7 @@
       "protocol_counts": {"ETHERNET": 18, "ICMP": 12, "IPv4": 4, "OTHER": 1, "TCP": 116, "UDP": 28},
       "layers": ["DNS", "Ethernet", "ICMP", "IPv4", "IPv6", "TCP", "UDP"],
       "conversation_count": 19,
-      "finding_rules": ["dns-no-matching-response", "dns-query-repeat", "icmp-error"],
+      "finding_rules": ["dns-no-matching-response", "dns-query-repeat", "icmp-destination-unreachable"],
       "dns_facts": {"dns_packets": 28, "queries": 14, "responses": 14, "multicast_dns_packets": 0},
       "minimum_payload_bytes": 1
     }

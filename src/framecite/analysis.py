@@ -6,13 +6,43 @@ import hashlib
 import json
 from collections import defaultdict
 from collections.abc import Iterable
+from itertools import pairwise
 from typing import Any
 
 from framecite.models import Capture, EvidenceRef, Finding, PacketRecord, endpoint
 
 MAX_EVIDENCE = 8
-ICMPV4_ERROR_TYPES = {3, 4, 5, 11, 12}
-ICMPV6_ERROR_TYPES = {1, 2, 3, 4}
+
+ICMP_CATEGORIES = {
+    (4, 3): ("icmp-destination-unreachable", "ICMPv4 destination unreachable", "warning"),
+    (4, 4): ("icmp-source-quench", "deprecated ICMPv4 source quench", "info"),
+    (4, 5): ("icmp-redirect", "ICMPv4 redirect", "info"),
+    (4, 11): ("icmp-time-exceeded", "ICMPv4 time exceeded", "warning"),
+    (4, 12): ("icmp-parameter-problem", "ICMPv4 parameter problem", "warning"),
+    (6, 1): ("icmpv6-destination-unreachable", "ICMPv6 destination unreachable", "warning"),
+    (6, 2): ("icmpv6-packet-too-big", "ICMPv6 packet too big", "warning"),
+    (6, 3): ("icmpv6-time-exceeded", "ICMPv6 time exceeded", "warning"),
+    (6, 4): ("icmpv6-parameter-problem", "ICMPv6 parameter problem", "warning"),
+}
+
+ICMP_CODE_NAMES = {
+    (4, 3, 0): "network unreachable",
+    (4, 3, 1): "host unreachable",
+    (4, 3, 2): "protocol unreachable",
+    (4, 3, 3): "port unreachable",
+    (4, 3, 4): "fragmentation needed",
+    (4, 3, 9): "network administratively prohibited",
+    (4, 3, 10): "host administratively prohibited",
+    (4, 3, 13): "communication administratively prohibited",
+    (4, 11, 0): "TTL expired in transit",
+    (4, 11, 1): "fragment reassembly time exceeded",
+    (6, 1, 0): "no route to destination",
+    (6, 1, 1): "communication administratively prohibited",
+    (6, 1, 3): "address unreachable",
+    (6, 1, 4): "port unreachable",
+    (6, 3, 0): "hop limit exceeded in transit",
+    (6, 3, 1): "fragment reassembly time exceeded",
+}
 
 
 def _conversation_key(record: PacketRecord) -> tuple[str, tuple[str, int], tuple[str, int]] | None:
@@ -57,6 +87,21 @@ def conversations(capture: Capture, protocol: str = "any") -> list[dict[str, Any
         assert key is not None
         _, left, right = key
         packet_numbers = [record.packet_number for record in records]
+        a_to_b = [
+            record
+            for record in records
+            if (record.src_ip, record.src_port) == left
+            and (record.dst_ip, record.dst_port) == right
+        ]
+        b_to_a = [
+            record
+            for record in records
+            if (record.src_ip, record.src_port) == right
+            and (record.dst_ip, record.dst_port) == left
+        ]
+        directionality = (
+            "bidirectional" if a_to_b and b_to_a else "a_to_b_only" if a_to_b else "b_to_a_only"
+        )
         result.append(
             {
                 "conversation_id": identifier,
@@ -66,6 +111,11 @@ def conversations(capture: Capture, protocol: str = "any") -> list[dict[str, Any
                 "packet_count": len(records),
                 "captured_bytes": sum(record.captured_length_bytes for record in records),
                 "wire_bytes": sum(record.wire_length_bytes for record in records),
+                "packets_a_to_b": len(a_to_b),
+                "packets_b_to_a": len(b_to_a),
+                "wire_bytes_a_to_b": sum(record.wire_length_bytes for record in a_to_b),
+                "wire_bytes_b_to_a": sum(record.wire_length_bytes for record in b_to_a),
+                "directionality": directionality,
                 "first_time_offset_us": min(record.time_offset_us for record in records),
                 "last_time_offset_us": max(record.time_offset_us for record in records),
                 "evidence": {
@@ -75,7 +125,10 @@ def conversations(capture: Capture, protocol: str = "any") -> list[dict[str, Any
                 },
             }
         )
-    return result
+    return sorted(
+        result,
+        key=lambda row: (-row["wire_bytes"], row["first_time_offset_us"], row["conversation_id"]),
+    )
 
 
 def _evidence(records: Iterable[PacketRecord], observation: str) -> tuple[EvidenceRef, ...]:
@@ -261,6 +314,7 @@ def dns_findings(
         responses_by_key[transaction_key(response, response=True)].append(response)
 
     unresolved: list[PacketRecord] = []
+    matched: list[tuple[PacketRecord, PacketRecord]] = []
     for query in analyzable_queries:
         matching = next(
             (
@@ -272,6 +326,8 @@ def dns_findings(
         )
         if matching is None:
             unresolved.append(query)
+        else:
+            matched.append((query, matching))
     if unresolved:
         findings.append(
             Finding(
@@ -302,36 +358,118 @@ def dns_findings(
             )
         )
 
+    response_times = [response.time_offset_us - query.time_offset_us for query, response in matched]
+    timing_reliable = capture.timestamp_regressions == 0
     facts = {
         "dns_packets": len(dns_records),
         "queries": len(queries),
         "responses": len(responses),
         "multicast_dns_packets": len(multicast_dns),
+        "matched_queries": len(matched),
+        "timing_reliable": timing_reliable,
+        "response_time_min_us": min(response_times) if response_times and timing_reliable else None,
+        "response_time_max_us": max(response_times) if response_times and timing_reliable else None,
+        "response_time_average_us": (
+            round(sum(response_times) / len(response_times))
+            if response_times and timing_reliable
+            else None
+        ),
     }
     return sorted(findings, key=lambda finding: finding.rule_id), facts
+
+
+def icmp_findings(capture: Capture) -> list[Finding]:
+    """Classify ICMP path signals without inferring their originating flow."""
+
+    grouped: dict[str, list[PacketRecord]] = defaultdict(list)
+    metadata: dict[str, tuple[str, str]] = {}
+    for record in capture.records:
+        category = ICMP_CATEGORIES.get((record.icmp_version, record.icmp_type))
+        if category is None:
+            continue
+        rule_id, label, level = category
+        if rule_id == "icmp-destination-unreachable" and record.icmp_code == 4:
+            rule_id, label = "icmp-fragmentation-needed", "ICMPv4 fragmentation needed"
+        grouped[rule_id].append(record)
+        metadata[rule_id] = (label, level)
+
+    findings: list[Finding] = []
+    for rule_id, records in sorted(grouped.items()):
+        label, level = metadata[rule_id]
+        evidence_items: list[EvidenceRef] = []
+        for record in records[:MAX_EVIDENCE]:
+            code_name = ICMP_CODE_NAMES.get(
+                (record.icmp_version, record.icmp_type, record.icmp_code),
+                f"code {record.icmp_code}",
+            )
+            evidence_items.append(
+                EvidenceRef(record.packet_number, record.time_offset_us, f"{label}; {code_name}.")
+            )
+        findings.append(
+            Finding(
+                rule_id,
+                level,
+                f"{len(records)} {label} packet(s) were observed.",
+                tuple(evidence_items),
+                ("The quoted originating flow is not correlated by this rule.",),
+            )
+        )
+    return findings
+
+
+def capture_quality_findings(capture: Capture) -> list[Finding]:
+    """Report capture defects that can limit downstream troubleshooting."""
+
+    findings: list[Finding] = []
+    shortened = [
+        record
+        for record in capture.records
+        if record.captured_length_bytes < record.wire_length_bytes
+    ]
+    if shortened:
+        findings.append(
+            Finding(
+                "capture-short-frame",
+                "warning",
+                f"{len(shortened)} packet(s) were shorter in the capture than on the wire.",
+                _evidence(shortened, "Captured length is smaller than original wire length."),
+                ("Headers or data beyond the snapshot length are unavailable.",),
+            )
+        )
+
+    regressions = [
+        current
+        for previous, current in pairwise(capture.records)
+        if current.time_offset_us < previous.time_offset_us
+    ]
+    if regressions:
+        findings.append(
+            Finding(
+                "capture-timestamp-regression",
+                "warning",
+                f"Capture timestamps moved backward {len(regressions)} time(s).",
+                _evidence(regressions, "Timestamp is earlier than the preceding packet."),
+                ("Latency and ordering conclusions may be unreliable.",),
+            )
+        )
+
+    if capture.truncated and capture.records:
+        findings.append(
+            Finding(
+                "capture-packet-limit",
+                "warning",
+                "Analysis stopped at the operator-configured packet limit.",
+                _evidence([capture.records[-1]], "This is the last retained packet."),
+                ("Later packets are unavailable to every analyzer.",),
+            )
+        )
+    return findings
 
 
 def summary_findings(capture: Capture) -> list[Finding]:
     findings = tcp_findings(capture)
     dns, _ = dns_findings(capture)
     findings.extend(dns)
-    icmp_errors = [
-        record
-        for record in capture.records
-        if (
-            record.icmp_version == 4
-            and record.icmp_type in ICMPV4_ERROR_TYPES
-            or record.icmp_version == 6
-            and record.icmp_type in ICMPV6_ERROR_TYPES
-        )
-    ]
-    if icmp_errors:
-        findings.append(
-            Finding(
-                "icmp-error",
-                "warning",
-                f"{len(icmp_errors)} ICMP error packet(s) were observed.",
-                _evidence(icmp_errors, "ICMP type is an error-reporting type."),
-            )
-        )
+    findings.extend(icmp_findings(capture))
+    findings.extend(capture_quality_findings(capture))
     return sorted(findings, key=lambda finding: (finding.level != "warning", finding.rule_id))
