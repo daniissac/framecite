@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/daniissac/framecite/actions/workflows/ci.yml/badge.svg)](https://github.com/daniissac/framecite/actions/workflows/ci.yml)
 [![Public PCAPs](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml/badge.svg)](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/daniissac/framecite/blob/main/LICENSE)
 [![MCP: stdio](https://img.shields.io/badge/MCP-stdio-5b5bd6.svg)](https://modelcontextprotocol.io/)
 
 **Local PCAP troubleshooting with packet-level citations.**
@@ -24,7 +24,7 @@ FrameCite is a deliberately small Model Context Protocol server that turns packe
 - **Small, safe surface:** six read-only troubleshooting tools with strict input/output schemas; no capture, injection, shell, arbitrary filter, write, or raw-byte tools.
 - **Two-layer verification:** hermetic synthetic tests cover failures and privacy boundaries; a hash-pinned public corpus checks real PCAP/PCAPNG compatibility without redistributing captures.
 
-![FrameCite architecture](docs/architecture.svg)
+![FrameCite architecture](https://raw.githubusercontent.com/daniissac/framecite/main/docs/architecture.svg)
 
 ## Start in one command
 
@@ -129,7 +129,7 @@ Additional guarantees:
 - Tool annotations declare read-only, non-destructive, closed-world behavior; repeatable analysis calls are also marked idempotent. `open_capture` advertises one top-level extension file parameter while preserving the same six-tool surface. The code enforces the restrictions independently.
 - Logs use standard error so they cannot corrupt MCP `stdio` messages.
 
-See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
+See [SECURITY.md](https://github.com/daniissac/framecite/blob/main/SECURITY.md) for the threat model and reporting process.
 
 ## Known limits
 
@@ -170,12 +170,12 @@ python scripts/verify_public_corpus.py
 
 The manifest pins 11 small captures from immutable Wireshark, tcpdump, libpcap, and Tcpreplay revisions. The runner verifies HTTPS sources, exact sizes, SHA-256 hashes, 236 packet outcomes, both PCAPNG byte orders, redaction, evidence references, token budgets, pagination, all six MCP tools, the extension file-input path, and a real `stdio` process. Files are downloaded into temporary directories and deleted; they are never committed or uploaded as artifacts.
 
-This networked check is separate from pull-request CI and runs weekly or on demand through [Public PCAP compatibility](.github/workflows/public-corpus.yml). Source and license links live beside every entry in [the metadata-only manifest](tests/public_corpus/manifest.json).
+This networked check is separate from pull-request CI and runs weekly or on demand through [Public PCAP compatibility](https://github.com/daniissac/framecite/actions/workflows/public-corpus.yml). Source and license links live beside every entry in [the metadata-only manifest](https://github.com/daniissac/framecite/blob/main/tests/public_corpus/manifest.json).
 
 ## Contributing
 
-Focused issues and pull requests are welcome. Do not attach real or sensitive packet captures to public issues; add a minimal synthetic fixture instead. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Focused issues and pull requests are welcome. Do not attach real or sensitive packet captures to public issues; add a minimal synthetic fixture instead. See [CONTRIBUTING.md](https://github.com/daniissac/framecite/blob/main/CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/daniissac/framecite/blob/main/LICENSE)
