@@ -19,10 +19,10 @@ htmlcov/
 *.env
 *.pcap
 *.pcapng
+RELEASING.md
 
 # Editors and operating systems
 .DS_Store
 .idea/
 .vscode/
 *.swp
-
